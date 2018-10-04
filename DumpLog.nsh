@@ -4,8 +4,10 @@
 !ifndef LVM_GETITEMTEXT
 !define LVM_GETITEMTEXT 0x102D
 !endif
+# For reference: https://stackoverflow.com/questions/29418718/nsis-intaller-lvm-getitemcount-already-defined
 
 Function DumpLog
+# For reference: http://nsis.sourceforge.net/Dump_log_to_file
   Exch $5
   Push $0
   Push $1

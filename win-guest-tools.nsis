@@ -23,7 +23,7 @@
 #
 # The above copyright notice and this permission notice shall be included in
 # all copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -257,6 +257,7 @@ SectionEnd
 
 Section -post
   WriteUninstaller "$INSTDIR\Uninstall ${FILENAME}.exe"
+  # for reference: https://stackoverflow.com/questions/2407509/writing-current-date-time-as-file-name-using-nsis
   !define /date MyTIMESTAMP "%Y-%m-%d-%H-%M-%S"
   StrCpy $0 "$INSTDIR\install-${MyTIMESTAMP}.log"
   Push $0
