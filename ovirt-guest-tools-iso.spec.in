@@ -33,7 +33,7 @@ BuildRequires:	ovirt-guest-agent-windows
 BuildRequires:	vcredist-x86
 BuildRequires:	nsis-simple-service-plugin >= 1.30-2
 
-https://docs.fedoraproject.org/en-US/quick-docs/creating-windows-virtual-machines-using-virtio-drivers/index.html#installing-virtio-win-repo
+# From https://docs.fedoraproject.org/en-US/quick-docs/creating-windows-virtual-machines-using-virtio-drivers/index.html#installing-virtio-win-repo
 BuildRequires:	virtio-win >= 0.1.160
 
 Obsoletes:	ovirt-guest-tools
