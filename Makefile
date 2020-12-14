@@ -72,6 +72,9 @@ OVIRTGA=/usr/share/ovirt-guest-agent-windows
 VCREDIST=/usr/share/vcredist-x86/vcredist_x86.exe
 VCREDIST_ARM64=/usr/share/vcredist-arm64/vc_redist.arm64.exe # TODO: not available
 
+# SPICE webdav dependencies
+WEBDAVMSI=/usr/share/spice-webdavd-windows
+
 # Common definitions for targets
 PREFIX=/usr/local
 DATAROOT_DIR=$(PREFIX)/share

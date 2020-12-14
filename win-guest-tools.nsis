@@ -124,6 +124,17 @@ Section "install"
   ${EndIf}
 !endif
 
+!ifdef SPICE
+  File "bin\vc_redist.arm64.exe"
+  File "bin\spice-webdavd-x86-latest.msi"
+  File "bin\spice-webdavd-x64-latest.msi"
+  File "bin\spice-webdavd-arm64-latest.msi"
+
+  ${If} ${IsNativeARM64}
+    ExecWait '"$INSTDIR\vc_redist.arm64.exe" /q'
+  ${EndIf}
+!endif
+
   SetOutPath "$INSTDIR\32"
   File "bin\vdagent_x86\vdagent.exe"
   File "bin\vdagent_x86\vdservice.exe"
@@ -231,6 +242,10 @@ Section "install"
   Call InstallOVirtAgentService
 !endif
 
+!ifdef SPICE
+  Call InstallSpiceWebdavd
+!endif
+
   Call InstallVdAgentService
 
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${REGKEYNAME}" \
@@ -259,6 +274,9 @@ Section "Uninstall"
   Call un.StopServices
   Call un.UninstallServices
   Call un.UninstallQemuGuestAgent
+!ifdef SPICE
+  Call un.UninstallSpiceWebdavd
+!endif
 
   SetOutPath "$TEMP"
 
@@ -288,6 +306,13 @@ Section "Uninstall"
   RMDir /rebootok "$INSTDIR\hooks\after_migration"
   RMDir /rebootok "$INSTDIR\hooks\before_migration"
   RMDir /rebootok "$INSTDIR\hooks"
+!endif
+!ifdef SPICE
+  Delete /rebootok "$INSTDIR\OVirtGuestService.exe"
+  Delete /rebootok "$INSTDIR\vc_redist.arm64.exe"
+  Delete /rebootok "$INSTDIR\spice-webdavd-x86-latest.msi"
+  Delete /rebootok "$INSTDIR\spice-webdavd-x64-latest.msi"
+  Delete /rebootok "$INSTDIR\spice-webdavd-arm64-latest.msi"
 !endif
   RMDir /rebootok "$INSTDIR"
 
@@ -526,6 +551,30 @@ Function InstallOVirtAgentService
   push $0
   push "OVirtGuestService"
   Call InstallService
+FunctionEnd
+!endif
+
+!ifdef SPICE
+Function InstallSpiceWebdavd
+  ${if} ${IsNativeARM64}
+    StrCpy $0 "$INSTDIR\spice-webdavd-arm64-latest.msi"
+  ${elseif} ${IsNativeAMD64}
+    StrCpy $0 "$INSTDIR\spice-webdavd-x64-latest.msi"
+  ${else}
+    StrCpy $0 "$INSTDIR\spice-webdavd-x86-latest.msi"
+  ${endif}
+  ExecWait '"msiexec.exe" /qn /i "$0"'
+FunctionEnd
+
+Function un.UninstallSpiceWebdavd
+  ${if} ${IsNativeARM64}
+    StrCpy $0 "$INSTDIR\spice-webdavd-arm64-latest.msi"
+  ${elseif} ${IsNativeAMD64}
+    StrCpy $0 "$INSTDIR\spice-webdavd-x64-latest.msi"
+  ${else}
+    StrCpy $0 "$INSTDIR\spice-webdavd-x86-latest.msi"
+  ${endif}
+  ExecWait '"msiexec.exe" /qn /x "$0"'
 FunctionEnd
 !endif
 
