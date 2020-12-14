@@ -220,6 +220,13 @@ Section "install"
     ${EndIf}
   ${EndIf}
 
+  ${If} ${AtLeastWin10}
+    Push "viogpu"
+    Push "viogpudo"
+    Push "PCI\VEN_1AF4&DEV_1050&SUBSYS_11001AF4&REV_01"
+    Call InstallDriver
+  ${EndIf}
+
 !ifdef OVIRT
   Call InstallOVirtAgentService
 !endif
