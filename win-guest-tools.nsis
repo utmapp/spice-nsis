@@ -183,7 +183,7 @@ Section "install"
 
   Push "."
   Push "qemupciserial"
-  Push "PCI\VEN_1B36&DEV_0003"
+  Push "PCI\VEN_1B36&DEV_0004"
   Call InstallDriver
 
   Push "NetKVM"
