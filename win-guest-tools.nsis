@@ -171,49 +171,53 @@ Section "install"
     Call InstallDriver
   ${EndIf}
 
-  Push "."
-  Push "qemupciserial"
-  Push "PCI\VEN_1B36&DEV_0002"
-  Call InstallDriver
+  ${IfNot} ${IsNativeARM64}
+    Push "."
+    Push "qemupciserial"
+    Push "PCI\VEN_1B36&DEV_0002"
+    Call InstallDriver
 
-  Push "."
-  Push "qemupciserial"
-  Push "PCI\VEN_1B36&DEV_0003"
-  Call InstallDriver
+    Push "."
+    Push "qemupciserial"
+    Push "PCI\VEN_1B36&DEV_0003"
+    Call InstallDriver
 
-  Push "."
-  Push "qemupciserial"
-  Push "PCI\VEN_1B36&DEV_0004"
-  Call InstallDriver
+    Push "."
+    Push "qemupciserial"
+    Push "PCI\VEN_1B36&DEV_0004"
+    Call InstallDriver
+  ${EndIf}
 
   Push "NetKVM"
   Push "netkvm"
   Push "PCI\VEN_1AF4&DEV_1000&SUBSYS_00011AF4&REV_00"
   Call InstallDriver
 
-  # Install rng driver
-  ${If} ${AtLeastWinVista}
-    Push "viorng"
-    Push "viorng"
-    Push "PCI\VEN_1AF4&DEV_1005"
-    Call InstallDriver
-  ${EndIf}
+  ${IfNot} ${IsNativeARM64}
+    # Install rng driver
+    ${If} ${AtLeastWinVista}
+      Push "viorng"
+      Push "viorng"
+      Push "PCI\VEN_1AF4&DEV_1005"
+      Call InstallDriver
+    ${EndIf}
 
-  # Install Q35 smbus driver
-  ${If} ${IsWin2008}
-    Push "smbus"
-    Push "smbus"
-    Push "PCI\VEN_8086&DEV_2930&SUBSYS_11001AF4"
-    Call InstallDriver
-  ${EndIf}
+    # Install Q35 smbus driver
+    ${If} ${IsWin2008}
+      Push "smbus"
+      Push "smbus"
+      Push "PCI\VEN_8086&DEV_2930&SUBSYS_11001AF4"
+      Call InstallDriver
+    ${EndIf}
 
-  # Install Q35 qemufwcfg driver
-  ${If} ${IsWin10}
-  ${OrIf} ${IsWin2016}
-    Push "qemufwcfg"
-    Push "qemufwcfg"
-    Push "ACPI\QEMU0002"
-    Call InstallDriver
+    # Install Q35 qemufwcfg driver
+    ${If} ${IsWin10}
+    ${OrIf} ${IsWin2016}
+      Push "qemufwcfg"
+      Push "qemufwcfg"
+      Push "ACPI\QEMU0002"
+      Call InstallDriver
+    ${EndIf}
   ${EndIf}
 
 !ifdef OVIRT
