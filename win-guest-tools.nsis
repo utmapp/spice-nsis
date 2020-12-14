@@ -105,12 +105,12 @@ Section "install"
   File "version.txt"
 
 !ifdef OVIRT
-  File "bin/vc_redist.arm64.exe"
-  File "bin/vcredist_x86.exe"
-  File "bin/OVirtGuestService.exe"
-  File "bin/ovirt-guest-agent.ini"
-  File "bin/default.ini"
-  File "bin/default-logger.ini"
+  File "bin\vc_redist.arm64.exe"
+  File "bin\vcredist_x86.exe"
+  File "bin\OVirtGuestService.exe"
+  File "bin\ovirt-guest-agent.ini"
+  File "bin\default.ini"
+  File "bin\default-logger.ini"
 
   CreateDirectory "$INSTDIR\hooks\after_hibernation"
   CreateDirectory "$INSTDIR\hooks\before_hibernation"
@@ -125,17 +125,17 @@ Section "install"
 !endif
 
   SetOutPath "$INSTDIR\32"
-  File "bin/vdagent_x86/vdagent.exe"
-  File "bin/vdagent_x86/vdservice.exe"
+  File "bin\vdagent_x86\vdagent.exe"
+  File "bin\vdagent_x86\vdservice.exe"
   SetOutPath "$INSTDIR\64"
-  File "bin/vdagent_x64/vdagent.exe"
-  File "bin/vdagent_x64/vdservice.exe"
+  File "bin\vdagent_x64\vdagent.exe"
+  File "bin\vdagent_x64\vdservice.exe"
   SetOutPath "$INSTDIR\ARM64"
-  File "bin/vdagent_arm64/vdagent.exe"
-  File "bin/vdagent_arm64/vdservice.exe"
+  File "bin\vdagent_arm64\vdagent.exe"
+  File "bin\vdagent_arm64\vdservice.exe"
 
   SetOutPath "$INSTDIR\drivers"
-  File /r /x *.pdb drivers/virtio/
+  File /r /x *.pdb drivers\virtio\
 
   Push "vioserial"
   Push "vioser"
