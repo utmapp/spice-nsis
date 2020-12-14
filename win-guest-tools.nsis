@@ -105,6 +105,7 @@ Section "install"
   File "version.txt"
 
 !ifdef OVIRT
+  File "bin/vc_redist.arm64.exe"
   File "bin/vcredist_x86.exe"
   File "bin/OVirtGuestService.exe"
   File "bin/ovirt-guest-agent.ini"
@@ -116,7 +117,11 @@ Section "install"
   CreateDirectory "$INSTDIR\hooks\after_migration"
   CreateDirectory "$INSTDIR\hooks\before_migration"
 
-  ExecWait '"$INSTDIR\vcredist_x86.exe" /q'
+  ${If} ${IsNativeARM64}
+    ExecWait '"$INSTDIR\vc_redist.arm64.exe" /q'
+  ${Else}
+    ExecWait '"$INSTDIR\vcredist_x86.exe" /q'
+  ${EndIf}
 !endif
 
   SetOutPath "$INSTDIR\32"
@@ -125,6 +130,9 @@ Section "install"
   SetOutPath "$INSTDIR\64"
   File "bin/vdagent_x64/vdagent.exe"
   File "bin/vdagent_x64/vdservice.exe"
+  SetOutPath "$INSTDIR\ARM64"
+  File "bin/vdagent_arm64/vdagent.exe"
+  File "bin/vdagent_arm64/vdservice.exe"
 
   SetOutPath "$INSTDIR\drivers"
   File /r /x *.pdb drivers/virtio/
@@ -251,6 +259,9 @@ Section "Uninstall"
   Delete /rebootok "$INSTDIR\64\vdagent.exe"
   Delete /rebootok "$INSTDIR\64\vdservice.exe"
   RMDir /rebootok "$INSTDIR\64"
+  Delete /rebootok "$INSTDIR\ARM64\vdagent.exe"
+  Delete /rebootok "$INSTDIR\ARM64\vdservice.exe"
+  RMDir /rebootok "$INSTDIR\ARM64"
   RMDir /rebootok /r "$INSTDIR\drivers"
 !ifdef OVIRT
   Delete /rebootok "$INSTDIR\OVirtGuestService.exe"
@@ -259,6 +270,7 @@ Section "Uninstall"
   Delete /rebootok "$INSTDIR\default-logger.ini"
   Delete /rebootok "$INSTDIR\ovirt-guest-agent.ini"
   Delete /rebootok "$INSTDIR\vcredist_x86.exe"
+  Delete /rebootok "$INSTDIR\vcredist.arm64.exe"
 
   RMDir /rebootok "$INSTDIR\hooks\after_hibernation"
   RMDir /rebootok "$INSTDIR\hooks\before_hibernation"
@@ -325,7 +337,11 @@ Function GetDriverSubdir
       Abort ; causes installer to quit.
    ${EndIf}
 
-   ${If} ${RunningX64}
+
+
+   ${If} ${IsNativeARM64}
+      StrCpy $0 "$0\ARM64"
+   ${ElseIf} ${IsNativeAMD64}
       StrCpy $0 "$0\amd64"
    ${Else}
       StrCpy $0 "$0\x86"
@@ -458,7 +474,7 @@ InstallService:
 FunctionEnd
 
 Function InstallQemuGuestAgent
-  ${if} ${RunningX64}
+  ${if} ${IsNativeAMD64}
     StrCpy $0 "$INSTDIR\drivers\guest-agent\qemu-ga-x64.msi"
   ${else}
     StrCpy $0 "$INSTDIR\drivers\guest-agent\qemu-ga-x86.msi"
@@ -467,7 +483,7 @@ Function InstallQemuGuestAgent
 FunctionEnd
 
 Function un.UninstallQemuGuestAgent
-  ${if} ${RunningX64}
+  ${if} ${IsNativeAMD64}
     StrCpy $0 "$INSTDIR\drivers\guest-agent\qemu-ga-x64.msi"
   ${else}
     StrCpy $0 "$INSTDIR\drivers\guest-agent\qemu-ga-x86.msi"
@@ -476,7 +492,9 @@ Function un.UninstallQemuGuestAgent
 FunctionEnd
 
 Function InstallVdAgentService
-  ${if} ${RunningX64}
+  ${if} ${IsNativeARM64}
+    StrCpy $0 "$INSTDIR\ARM64\vdservice.exe"
+  ${elseif} ${IsNativeAMD64}
     StrCpy $0 "$INSTDIR\64\vdservice.exe"
   ${else}
     StrCpy $0 "$INSTDIR\32\vdservice.exe"

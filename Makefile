@@ -44,6 +44,7 @@ TEMP_DIR=temp_dir
 # From RPMs available at http://www.spice-space.org/download/windows/vdagent/vdagent-win-0.8.0/
 VDA32BIN=/usr/i686-w64-mingw32/sys-root/mingw/bin
 VDA64BIN=/usr/x86_64-w64-mingw32/sys-root/mingw/bin
+VDAARM64BIN=/usr/arm64-w64-mingw32/sys-root/mingw/bin # TODO: not available
 
 # From virtio-win package available in https://fedoraproject.org/wiki/Windows_Virtio_Drivers#Yum.7CDnf_Repo
 # TODO:
@@ -69,6 +70,7 @@ OVIRTGA=/usr/share/ovirt-guest-agent-windows
 # Available from http://www.microsoft.com/en-us/download/details.aspx?id=5582
 # RPM wrapping this available from http://resources.ovirt.org/pub/ovirt-3.6/rpm/fc22
 VCREDIST=/usr/share/vcredist-x86/vcredist_x86.exe
+VCREDIST_ARM64=/usr/share/vcredist-arm64/vc_redist.arm64.exe # TODO: not available
 
 # Common definitions for targets
 PREFIX=/usr/local
@@ -97,11 +99,13 @@ $(INSTALLER): win-guest-tools.nsis
 		win-guest-tools.nsis
 
 common-files: $(VIRTIOWINDRIVERS)
-	mkdir -p bin/vdagent_x86 bin/vdagent_x64 drivers/virtio
+	mkdir -p bin/vdagent_x86 bin/vdagent_x64 bin/vdagent_arm64 drivers/virtio
 	$(RSYNC_AH) "$(VDA32BIN)"/vdagent.exe bin/vdagent_x86/
 	$(RSYNC_AH) "$(VDA32BIN)"/vdservice.exe bin/vdagent_x86/
 	$(RSYNC_AH) "$(VDA64BIN)"/vdagent.exe bin/vdagent_x64/
 	$(RSYNC_AH) "$(VDA64BIN)"/vdservice.exe bin/vdagent_x64/
+	$(RSYNC_AH) "$(VDAARM64BIN)"/vdagent.exe bin/vdagent_arm64/
+	$(RSYNC_AH) "$(VDAARM64BIN)"/vdservice.exe bin/vdagent_arm64/
 	$(RSYNC_AH) "$(VIRTIOWINDRIVERS)"/* drivers/virtio/
 
 # TODO: Drop this once the drivers are shipped as normal files. See comment above.
@@ -131,6 +135,7 @@ extra-files:
 		"$(OVIRTGA)/default-logger.ini" \
 		"$(OVIRTGA)/ovirt-guest-agent.ini" \
 		"$(VCREDIST)" \
+		"$(VCREDIST_ARM64)" \
 		bin/
 endif
 endif
