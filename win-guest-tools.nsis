@@ -248,6 +248,10 @@ Section "install"
 
   Call InstallVdAgentService
 
+${If} ${IsNativeARM64}
+  Call DisableFallbackDisplay
+${EndIf}
+
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${REGKEYNAME}" \
                  "DisplayName" "${NAME} ${DISPLAYED_VERSION}"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${REGKEYNAME}" \
@@ -277,6 +281,10 @@ Section "Uninstall"
 !ifdef SPICE
   Call un.UninstallSpiceWebdavd
 !endif
+
+${If} ${IsNativeARM64}
+  Call un.EnableFallbackDisplay
+${EndIf}
 
   SetOutPath "$TEMP"
 
@@ -589,4 +597,19 @@ Function InstallBalloonService
   Push "BalloonService"
   Call InstallService
 
+FunctionEnd
+
+Function DisableFallbackDisplay
+  DetailPrint "Disabling firmware display adapter"
+  WriteRegDWORD HKLM "System\CurrentControlSet\Control\GraphicsDrivers\BasicDisplay" \
+                 "DisableBasicDisplayFallback" "1"
+  SetRebootFlag true
+FunctionEnd
+
+Function un.EnableFallbackDisplay
+  DetailPrint "Enabling firmware display adapter"
+  DeleteRegValue HKLM "System\CurrentControlSet\Control\GraphicsDrivers\BasicDisplay" \
+                 "DisableBasicDisplayFallback"
+  DeleteRegKey /ifempty HKLM "System\CurrentControlSet\Control\GraphicsDrivers\BasicDisplay"
+  SetRebootFlag true
 FunctionEnd
