@@ -226,16 +226,38 @@ Section "install"
     ${EndIf}
 
     # Install Q35 qemufwcfg driver
-    ${If} ${IsWin10}
-    ${OrIf} ${IsWin2016}
+    ${If} ${AtLeastWin10}
+    ${OrIf} ${AtLeastWin2016}
       Push "qemufwcfg"
       Push "qemufwcfg"
       Push "ACPI\QEMU0002"
       Call InstallDriver
     ${EndIf}
+
+    ${If} ${AtLeastWin8}
+    ${OrIf} ${AtLeastWin2012}
+      Push "viofs"
+      Push "viofs"
+      Push "PCI\VEN_1AF4&DEV_105A&SUBSYS_11001AF4&REV_01"
+      Call InstallDriver
+    ${EndIf}
+  ${EndIf}
+
+  ${If} ${AtLeastWin7}
+  ${OrIf} ${AtLeastWin2008}
+    Push "pvpanic"
+    Push "pvpanic"
+    Push "ACPI\QEMU0001"
+    Call InstallDriver
+
+    Push "vioinput"
+    Push "vioinput"
+    Push "PCI\VEN_1AF4&DEV_1052&SUBSYS_11001AF4&REV_01"
+    Call InstallDriver
   ${EndIf}
 
   ${If} ${AtLeastWin10}
+  ${OrIf} ${AtLeastWin2016}
     Push "viogpu"
     Push "viogpudo"
     Push "PCI\VEN_1AF4&DEV_1050&SUBSYS_11001AF4&REV_01"
@@ -382,9 +404,9 @@ Function GetDriverSubdir
       StrCpy $0 "$0\w8.1"
    ${ElseIf} ${IsWin2012R2}
       StrCpy $0 "$0\2k12r2"
-   ${ElseIf} ${IsWin10}
+   ${ElseIf} ${AtLeastWin10}
       StrCpy $0 "$0\w10"
-   ${ElseIf} ${IsWin2016}
+   ${ElseIf} ${AtLeastWin2016}
       StrCpy $0 "$0\2k16"
    ${Else}
       MessageBox MB_ICONEXCLAMATION "Unsupported Windows version"
