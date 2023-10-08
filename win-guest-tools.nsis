@@ -126,7 +126,9 @@ Section "install"
 
 !ifdef SPICE
   File "bin\vc_redist.arm64.exe"
+  File "bin\spice-webdavd-x86-2.2.msi"
   File "bin\spice-webdavd-x86-latest.msi"
+  File "bin\spice-webdavd-x64-2.2.msi"
   File "bin\spice-webdavd-x64-latest.msi"
   File "bin\spice-webdavd-arm64-latest.msi"
 
@@ -318,7 +320,9 @@ ${EndIf}
 !ifdef SPICE
   Delete /rebootok "$INSTDIR\OVirtGuestService.exe"
   Delete /rebootok "$INSTDIR\vc_redist.arm64.exe"
+  Delete /rebootok "$INSTDIR\spice-webdavd-x86-2.2.msi"
   Delete /rebootok "$INSTDIR\spice-webdavd-x86-latest.msi"
+  Delete /rebootok "$INSTDIR\spice-webdavd-x64-2.2.msi"
   Delete /rebootok "$INSTDIR\spice-webdavd-x64-latest.msi"
   Delete /rebootok "$INSTDIR\spice-webdavd-arm64-latest.msi"
 !endif
@@ -567,9 +571,17 @@ Function InstallSpiceWebdavd
   ${if} ${IsNativeARM64}
     StrCpy $0 "$INSTDIR\spice-webdavd-arm64-latest.msi"
   ${elseif} ${IsNativeAMD64}
-    StrCpy $0 "$INSTDIR\spice-webdavd-x64-latest.msi"
+    ${if} ${AtLeastWin7}
+      StrCpy $0 "$INSTDIR\spice-webdavd-x64-latest.msi"
+    ${else}
+      StrCpy $0 "$INSTDIR\spice-webdavd-x64-2.2.msi"
+    ${endif}
   ${else}
-    StrCpy $0 "$INSTDIR\spice-webdavd-x86-latest.msi"
+    ${if} ${AtLeastWin7}
+      StrCpy $0 "$INSTDIR\spice-webdavd-x86-latest.msi"
+    ${else}
+      StrCpy $0 "$INSTDIR\spice-webdavd-x86-2.2.msi"
+    ${endif}
   ${endif}
   ExecWait '"msiexec.exe" /qn /i "$0"'
 FunctionEnd
@@ -578,9 +590,17 @@ Function un.UninstallSpiceWebdavd
   ${if} ${IsNativeARM64}
     StrCpy $0 "$INSTDIR\spice-webdavd-arm64-latest.msi"
   ${elseif} ${IsNativeAMD64}
-    StrCpy $0 "$INSTDIR\spice-webdavd-x64-latest.msi"
+    ${if} ${AtLeastWin7}
+      StrCpy $0 "$INSTDIR\spice-webdavd-x64-latest.msi"
+    ${else}
+      StrCpy $0 "$INSTDIR\spice-webdavd-x64-2.2.msi"
+    ${endif}
   ${else}
-    StrCpy $0 "$INSTDIR\spice-webdavd-x86-latest.msi"
+    ${if} ${AtLeastWin7}
+      StrCpy $0 "$INSTDIR\spice-webdavd-x86-latest.msi"
+    ${else}
+      StrCpy $0 "$INSTDIR\spice-webdavd-x86-2.2.msi"
+    ${endif}
   ${endif}
   ExecWait '"msiexec.exe" /qn /x "$0"'
 FunctionEnd
