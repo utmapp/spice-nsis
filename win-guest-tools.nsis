@@ -131,6 +131,8 @@ Section "install"
   File "bin\spice-webdavd-x64-2.2.msi"
   File "bin\spice-webdavd-x64-latest.msi"
   File "bin\spice-webdavd-arm64-latest.msi"
+  File "bin\qemu-ga-i386.msi"
+  File "bin\qemu-ga-x86_64.msi"
 
   ${If} ${IsNativeARM64}
     ExecWait '"$INSTDIR\vc_redist.arm64.exe" /q'
@@ -246,6 +248,7 @@ Section "install"
 
 !ifdef SPICE
   Call InstallSpiceWebdavd
+  Call InstallGuestAgent
 !endif
 
   Call InstallVdAgentService
@@ -282,6 +285,7 @@ Section "Uninstall"
   Call un.UninstallQemuGuestAgent
 !ifdef SPICE
   Call un.UninstallSpiceWebdavd
+  Call un.UninstallGuestAgent
 !endif
 
 ${If} ${IsNativeARM64}
@@ -325,6 +329,8 @@ ${EndIf}
   Delete /rebootok "$INSTDIR\spice-webdavd-x64-2.2.msi"
   Delete /rebootok "$INSTDIR\spice-webdavd-x64-latest.msi"
   Delete /rebootok "$INSTDIR\spice-webdavd-arm64-latest.msi"
+  Delete /rebootok "$INSTDIR\qemu-ga-i386.msi"
+  Delete /rebootok "$INSTDIR\qemu-ga-x86_64.msi"
 !endif
   RMDir /rebootok "$INSTDIR"
 
@@ -601,6 +607,28 @@ Function un.UninstallSpiceWebdavd
     ${else}
       StrCpy $0 "$INSTDIR\spice-webdavd-x86-2.2.msi"
     ${endif}
+  ${endif}
+  ExecWait '"msiexec.exe" /qn /x "$0"'
+FunctionEnd
+
+Function InstallGuestAgent
+  ${if} ${IsNativeARM64}
+    StrCpy $0 "$INSTDIR\qemu-ga-x86_64.msi"
+  ${elseif} ${IsNativeAMD64}
+    StrCpy $0 "$INSTDIR\qemu-ga-x86_64.msi"
+  ${else}
+    StrCpy $0 "$INSTDIR\qemu-ga-i386.msi"
+  ${endif}
+  ExecWait '"msiexec.exe" /qn /i "$0"'
+FunctionEnd
+
+Function un.UninstallGuestAgent
+  ${if} ${IsNativeARM64}
+    StrCpy $0 "$INSTDIR\qemu-ga-x86_64.msi"
+  ${elseif} ${IsNativeAMD64}
+    StrCpy $0 "$INSTDIR\qemu-ga-x86_64.msi"
+  ${else}
+    StrCpy $0 "$INSTDIR\qemu-ga-i386.msi"
   ${endif}
   ExecWait '"msiexec.exe" /qn /x "$0"'
 FunctionEnd
