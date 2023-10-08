@@ -42,11 +42,11 @@ SetCompressor /SOLID lzma
 
 
 !ifdef SPICE
-!define FILENAME "spice-guest-tools"
-!define NAME "SPICE Guest Tools"
-!define PUBLISHER "The SPICE Project"
+!define FILENAME "utm-guest-tools"
+!define NAME "UTM Guest Tools"
+!define PUBLISHER "Turing Software, LLC"
 !define REGKEYNAME "SpiceGuestTools"
-!define URL "http://spice-space.org"
+!define URL "https://getutm.app"
 !else ifdef OVIRT
 !define FILENAME "ovirt-guest-tools-setup"
 !define NAME "oVirt Guest Tools"
