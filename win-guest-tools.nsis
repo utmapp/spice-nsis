@@ -159,15 +159,18 @@ Section "install"
 
   Call InstallQemuGuestAgent
 
-  ${if} ${AtLeastWin8}
-    Push "qxldod"
-    Push "qxldod"
-  ${else}
-    Push "qxl"
-    Push "qxl"
-  ${endif}
-  Push "PCI\VEN_1b36&DEV_0100&SUBSYS_11001af4"
-  Call InstallDriver
+  ${IfNot} ${IsNativeARM64}
+  ${AndIfNot} ${AtLeastWin11}
+    ${if} ${AtLeastWin8}
+      Push "qxldod"
+      Push "qxldod"
+    ${else}
+      Push "qxl"
+      Push "qxl"
+    ${endif}
+    Push "PCI\VEN_1b36&DEV_0100&SUBSYS_11001af4"
+    Call InstallDriver
+  ${EndIf}
 
   Push "Balloon"
   Push "balloon"
