@@ -209,16 +209,18 @@ Section "install"
   Call InstallDriver
 
   ${IfNot} ${IsNativeARM64}
-    # Install rng driver
-    ${If} ${AtLeastWinVista}
-      Push "viorng"
-      Push "viorng"
-      Push "PCI\VEN_1AF4&DEV_1005"
+    # Install sriov driver
+    ${If} ${AtLeastWin8}
+    ${OrIf} ${AtLeastWin2012}
+      Push "sriov"
+      Push "sriov"
+      Push "VIOPROT"
       Call InstallDriver
     ${EndIf}
 
     # Install Q35 smbus driver
     ${If} ${IsWin2008}
+    ${OrIf} ${AtLeastWin11}
       Push "smbus"
       Push "smbus"
       Push "PCI\VEN_8086&DEV_2930&SUBSYS_11001AF4"
@@ -243,6 +245,14 @@ Section "install"
     ${EndIf}
   ${EndIf}
 
+  # Install rng driver
+  ${If} ${AtLeastWinVista}
+    Push "viorng"
+    Push "viorng"
+    Push "PCI\VEN_1AF4&DEV_1005"
+    Call InstallDriver
+  ${EndIf}
+
   ${If} ${AtLeastWin7}
   ${OrIf} ${AtLeastWin2008}
     Push "pvpanic"
@@ -258,9 +268,17 @@ Section "install"
 
   ${If} ${AtLeastWin10}
   ${OrIf} ${AtLeastWin2016}
-    Push "viogpu"
+    Push "viogpudo"
     Push "viogpudo"
     Push "PCI\VEN_1AF4&DEV_1050&SUBSYS_11001AF4&REV_01"
+    Call InstallDriver
+  ${EndIf}
+
+  ${If} ${AtLeastWin10}
+  ${OrIf} ${AtLeastWin2016}
+    Push "viomem"
+    Push "viomem"
+    Push "PCI\VEN_1AF4&DEV_1058&SUBSYS_11001AF4&REV_01"
     Call InstallDriver
   ${EndIf}
 
@@ -275,9 +293,10 @@ Section "install"
 
   Call InstallVdAgentService
 
-${If} ${IsNativeARM64}
-  Call DisableFallbackDisplay
-${EndIf}
+# No longer needed
+#${If} ${IsNativeARM64}
+#  Call DisableFallbackDisplay
+#${EndIf}
 
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${REGKEYNAME}" \
                  "DisplayName" "${NAME} ${DISPLAYED_VERSION}"
@@ -404,6 +423,8 @@ Function GetDriverSubdir
       StrCpy $0 "$0\w8.1"
    ${ElseIf} ${IsWin2012R2}
       StrCpy $0 "$0\2k12r2"
+   ${ElseIf} ${AtLeastWin11}
+      StrCpy $0 "$0\w11"
    ${ElseIf} ${AtLeastWin10}
       StrCpy $0 "$0\w10"
    ${ElseIf} ${AtLeastWin2016}
