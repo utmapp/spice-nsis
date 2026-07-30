@@ -211,7 +211,7 @@
                     <Order>1</Order>
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
-                    <CommandLine>E:\utm-guest-tools-0.1.271.exe</CommandLine>
+                    <CommandLine>E:\utm-guest-tools.exe</CommandLine>
                     <Description>Install SPICE tools</Description>
                     <Order>2</Order>
                 </SynchronousCommand>
@@ -233,7 +233,7 @@
                     <Order>1</Order>
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
-                    <CommandLine>E:\utm-guest-tools-0.1.271.exe</CommandLine>
+                    <CommandLine>E:\utm-guest-tools.exe</CommandLine>
                     <Description>Install SPICE tools</Description>
                     <Order>2</Order>
                 </SynchronousCommand>
