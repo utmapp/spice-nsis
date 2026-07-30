@@ -75,9 +75,19 @@ BrandingText " "
 ShowInstDetails nevershow
 # ShowUninstDetails hide
 
+# Hardware ID shared by both the display-only (viogpudo) and the
+# experimental 3D accelerated (viogpu3d) virtio GPU drivers
+!define GPU_HWID "PCI\VEN_1AF4&DEV_1050&SUBSYS_11001AF4&REV_01"
+
+Var GraphicsDialog
+Var Enable3DCheckbox
+Var Enable3D
+
 !include "MUI2.nsh"
+!include "nsDialogs.nsh"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE virtio-win_license.txt
+Page custom GraphicsPageCreate GraphicsPageLeave
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
@@ -271,9 +281,14 @@ Section "install"
 
   ${If} ${AtLeastWin10}
   ${OrIf} ${AtLeastWin2016}
-    Push "viogpudo"
-    Push "viogpudo"
-    Push "PCI\VEN_1AF4&DEV_1050&SUBSYS_11001AF4&REV_01"
+    ${If} $Enable3D == ${BST_CHECKED}
+      Push "viogpu3d"
+      Push "viogpu3d"
+    ${Else}
+      Push "viogpudo"
+      Push "viogpudo"
+    ${EndIf}
+    Push "${GPU_HWID}"
     Call InstallDriver
   ${EndIf}
 
@@ -392,6 +407,8 @@ Section -post
 SectionEnd
 
 Function .onInit
+   StrCpy $Enable3D ${BST_UNCHECKED}
+
    ${if} ${RunningX64}
      ${if} ${IsWinXP}
        MessageBox MB_ICONEXCLAMATION "Windows XP 64 bit is an unsupported Windows version"
@@ -402,6 +419,45 @@ Function .onInit
        MessageBox MB_ICONEXCLAMATION "Drivers only available for Windows XP or newer"
        Abort ; causes installer to quit.
    ${endif}
+FunctionEnd
+
+Function GraphicsPageCreate
+  !insertmacro MUI_HEADER_TEXT "Graphics Acceleration" "Choose which VirtIO graphics driver to install."
+
+  nsDialogs::Create 1018
+  Pop $GraphicsDialog
+  ${If} $GraphicsDialog == error
+    Abort
+  ${EndIf}
+
+  # Negative coordinates and sizes are relative to the bottom edge, so the
+  # description soaks up whatever room the controls below it leave
+  ${NSD_CreateLabel} 0 0u 100% -64u "The experimental graphics driver adds hardware 3D acceleration, but it is still under active development. It can cause rendering glitches, application crashes, or a blank display, and should not be used on a machine you rely on.$\r$\n$\r$\nIt also only works on versions of UTM that support 3D acceleration. On any older version the display will not work at all.$\r$\n$\r$\nLeave this unchecked to install the stable display-only driver."
+  Pop $0
+
+  ${NSD_CreateLabel} 0 -60u 100% 24u "Note: any existing graphics driver must be uninstalled before the driver installed here can be loaded."
+  Pop $0
+
+  ${NSD_CreateCheckbox} 0 -30u 100% 12u "Enable experimental 3D acceleration"
+  Pop $Enable3DCheckbox
+  ${If} $Enable3D == ${BST_CHECKED}
+    ${NSD_Check} $Enable3DCheckbox
+  ${EndIf}
+
+  # viogpu3d is only shipped for Windows 11 amd64 and ARM64
+  ${IfNot} ${AtLeastWin11}
+  ${OrIfNot} ${RunningX64}
+    ${NSD_Uncheck} $Enable3DCheckbox
+    EnableWindow $Enable3DCheckbox 0
+    ${NSD_CreateLabel} 14u -14u 100% 10u "The experimental driver is not available for this version of Windows."
+    Pop $0
+  ${EndIf}
+
+  nsDialogs::Show
+FunctionEnd
+
+Function GraphicsPageLeave
+  ${NSD_GetState} $Enable3DCheckbox $Enable3D
 FunctionEnd
 
 Function GetDriverSubdir
