@@ -39,6 +39,12 @@ phase 2 removes the packages then, when there is nothing to tear down.
 
 Phase 2 runs automatically from a one-shot scheduled task at startup.
 
+Services are removed through the service control manager, never by deleting
+their registry keys, and if the SCM defers a delete to the next boot the
+uninstall insists on that restart. A record the SCM still holds after its
+key is gone makes the next install of the same driver fail; see
+Remove-ServiceRecord.
+
 The display keeps working throughout. With no VirtIO GPU driver, Windows
 drives the firmware framebuffer with its basic display driver, at reduced
 resolution.
@@ -53,8 +59,14 @@ $ErrorActionPreference = 'Stop'
 $TaskName    = 'UninstallVirtioGpuPhase2'
 $ScriptPath  = $PSCommandPath
 $LogFile     = Join-Path $env:SystemRoot 'Temp\Uninstall-VirtioGpu.log'
-$TargetInfs  = @('viogpudo.inf', 'viogpu3d.inf')
-$TargetSvcs  = @('VioGpuDod', 'VioGpu3D')
+$ServiceInf  = [ordered]@{ 'VioGpuDod' = 'viogpudo.inf'; 'VioGpu3D' = 'viogpu3d.inf' }
+$TargetInfs  = @($ServiceInf.Values)
+$TargetSvcs  = @($ServiceInf.Keys)
+
+# sc.exe exits with the Win32 error code of the call that failed.
+$ERROR_FILE_NOT_FOUND            = 2
+$ERROR_SERVICE_DOES_NOT_EXIST    = 1060
+$ERROR_SERVICE_MARKED_FOR_DELETE = 1072
 
 function Log([string]$Message) {
     $line = '[{0:HH:mm:ss}] {1}' -f (Get-Date), $Message
@@ -137,24 +149,85 @@ function Remove-Packages {
     }
 }
 
-# A service key outlives the package that created it. Left disabled it would
-# silently break a later install of the same driver, so drop the orphans.
-function Remove-OrphanServices {
-    $left = Get-Packages
-    foreach ($svc in $TargetSvcs) {
-        $key = "HKLM:\SYSTEM\CurrentControlSet\Services\$svc"
-        if (-not (Test-Path $key)) { continue }
-        $inf = if ($svc -eq 'VioGpuDod') { 'viogpudo.inf' } else { 'viogpu3d.inf' }
-        if ($left | Where-Object { $_.Original -eq $inf }) {
-            Set-ItemProperty -LiteralPath $key -Name Start -Value 3 -Type DWord
-            Log "Service $svc still has a package; start type restored"
-        } else {
-            Remove-Item -LiteralPath $key -Recurse -Force -ErrorAction SilentlyContinue
-            Log "Removed service $svc"
-        }
+# Where a service stands with the SCM, which is not the same question as
+# whether its registry key exists:
+#
+#   Absent   the SCM does not know it and no key is left behind
+#   Present  a real, fully described service
+#   Pending  the SCM still holds a record that cannot be completed away
+#            until the machine restarts -- either marked for delete, or a
+#            record whose registry key is already gone
+function Get-ServiceState([string]$Name) {
+    Invoke-Tool 'sc.exe' @('query', $Name) -Quiet | Out-Null
+    $code = $LASTEXITCODE
+    $key  = Test-Path "HKLM:\SYSTEM\CurrentControlSet\Services\$Name"
+    if ($code -eq $ERROR_SERVICE_DOES_NOT_EXIST) {
+        if ($key) { return 'Present' }   # key written, SCM not yet aware
+        return 'Absent'
     }
+    if ($code -eq $ERROR_SERVICE_MARKED_FOR_DELETE) { return 'Pending' }
+    if ($code -eq $ERROR_FILE_NOT_FOUND) { return 'Pending' }
+    if ($code -eq 0 -and $key) { return 'Present' }
+    return 'Pending'
 }
 
+# A service key outlives the package that created it. Left behind it would
+# silently break a later install of the same driver, so drop the orphans --
+# but never by deleting the key.
+#
+# Deleting the key directly leaves the SCM holding an in-memory record of a
+# service whose configuration is gone. The next INF install then opens that
+# record successfully and its QueryServiceConfig fails with
+# ERROR_FILE_NOT_FOUND instead of ERROR_SERVICE_DOES_NOT_EXIST, so setupapi
+# never takes the "create the service" path: it aborts AddService, rolls the
+# install back and binds a NULL driver. The device is left as an unclassed
+# Video Controller with no problem code -- healthy looking, and with no
+# driver. Only a restart clears the record, so go through the SCM and, when
+# it defers the delete, make sure the restart happens.
+function Remove-ServiceRecord([string]$Name) {
+    if ((Get-ServiceState $Name) -eq 'Absent') { return $true }
+
+    Invoke-Tool 'sc.exe' @('delete', $Name) | Out-Null
+    $code = $LASTEXITCODE
+
+    # The SCM never knew about it, so nothing holds a reference to the key
+    # and removing it by hand cannot strand a record.
+    if ($code -eq $ERROR_SERVICE_DOES_NOT_EXIST) {
+        Remove-Item -LiteralPath "HKLM:\SYSTEM\CurrentControlSet\Services\$Name" `
+            -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    if ((Get-ServiceState $Name) -eq 'Absent') {
+        Log "Removed service $Name"
+        return $true
+    }
+    if ($code -eq 0 -or $code -eq $ERROR_SERVICE_MARKED_FOR_DELETE) {
+        Log "Service $Name is deleted but still held by the service manager"
+    } else {
+        Log "Could not remove service $Name (sc delete returned $code)"
+    }
+    return $false
+}
+
+# Returns the services whose removal the SCM deferred to the next restart.
+function Remove-OrphanServices {
+    $left    = Get-Packages
+    $pending = @()
+    foreach ($svc in $TargetSvcs) {
+        if ($left | Where-Object { $_.Original -eq $ServiceInf[$svc] }) {
+            $key = "HKLM:\SYSTEM\CurrentControlSet\Services\$svc"
+            if (Test-Path $key) {
+                Set-ItemProperty -LiteralPath $key -Name Start -Value 3 -Type DWord
+                Log "Service $svc still has a package; start type restored"
+            }
+            continue
+        }
+        if (-not (Remove-ServiceRecord $svc)) { $pending += $svc }
+    }
+    , @($pending)
+}
+
+# Returns the services the SCM will only let go of on the next restart.
 function Invoke-Purge {
     foreach ($svc in $TargetSvcs) {
         $q = Invoke-Tool 'sc.exe' @('query', $svc) -Quiet
@@ -163,27 +236,59 @@ function Invoke-Purge {
         }
     }
     Remove-Packages
-    Remove-OrphanServices
+    $pending = Remove-OrphanServices
     Invoke-Tool 'schtasks.exe' @('/Delete', '/TN', $TaskName, '/F') -Quiet | Out-Null
+    , @($pending)
+}
+
+# shutdown.exe rather than Restart-Computer: it states the reason on screen
+# and leaves a grace period, so a restart that happens without the user
+# asking for one is at least announced and can be stopped with 'shutdown /a'.
+function Request-Restart([string]$Reason) {
+    Log "Restarting in 60 seconds: $Reason"
+    Invoke-Tool 'shutdown.exe' @('/r', '/t', '60', '/c', $Reason) | Out-Null
+}
+
+# The SCM will not let go until the next boot, and a driver installed before
+# then fails in AddService. Offer the restart rather than describe it.
+function Resolve-Pending([string[]]$Pending) {
+    Write-Host ''
+    Write-Host "The service manager still holds a deleted service ($($Pending -join ', '))."
+    Write-Host 'It only lets go on a restart. A display driver installed before then'
+    Write-Host 'would fail to install and leave the display device with no driver.'
+    Write-Host ''
+    if ((Read-Host 'Type YES to restart now') -eq 'YES') {
+        Request-Restart 'Finishing the VirtIO GPU uninstall.'
+        return
+    }
+    Write-Host 'Restart this computer before installing a display driver.'
 }
 
 function Invoke-Phase1 {
     $packages = Get-Packages
     $devices  = Get-BoundDevices
     $loaded   = @($devices | Where-Object Present)
+    $stale    = @()
+    foreach ($svc in $TargetSvcs) {
+        if ((Get-ServiceState $svc) -eq 'Absent') { continue }
+        if ($loaded.Service -contains $svc) { continue }
+        if ($packages | Where-Object { $_.Original -eq $ServiceInf[$svc] }) { continue }
+        $stale += $svc
+    }
 
     Write-Host ''
     Write-Host 'Uninstall VirtIO GPU display drivers'
     Write-Host '------------------------------------'
-    if (-not $packages -and -not $loaded) {
+    if (-not $packages -and -not $loaded -and -not $stale) {
         Write-Host 'No VirtIO GPU drivers are installed. Nothing to do.'
-        Read-Host 'Press Enter to close'
+        $null = Read-Host 'Press Enter to close'
         return 0
     }
 
     Write-Host 'Found:'
     foreach ($p in $packages) { Write-Host "  package  $($p.Original)  version $($p.Version)  ($($p.Published))" }
     foreach ($d in $loaded)   { Write-Host "  device   $($d.Name)  service $($d.Service)" }
+    foreach ($svc in $stale)  { Write-Host "  service  $svc  (left over from an earlier uninstall)" }
     Write-Host ''
     Write-Host 'This will:'
     if ($loaded) {
@@ -192,8 +297,10 @@ function Invoke-Phase1 {
         Write-Host '  3. Remove the driver packages automatically after the restart.'
         Write-Host ''
         Write-Host 'The restart is required: the driver cannot be removed while it is loaded.'
+    } elseif ($packages) {
+        Write-Host '  1. Remove the driver packages now.'
     } else {
-        Write-Host '  1. Remove the driver packages now. No restart is needed.'
+        Write-Host '  1. Clear the leftover service records now.'
     }
     Write-Host ''
     Write-Host 'The screen keeps working, at a lower resolution, until a display driver is installed.'
@@ -203,20 +310,22 @@ function Invoke-Phase1 {
     if ((Read-Host 'Type YES to continue') -ne 'YES') {
         Write-Host 'Cancelled. Nothing was changed.'
         Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
-        Read-Host 'Press Enter to close'
+        $null = Read-Host 'Press Enter to close'
         return 1
     }
 
     if (-not $loaded) {
-        Invoke-Purge
+        $pending = Invoke-Purge
         Log 'Done.'
         Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
-        Read-Host 'Press Enter to close'
+        if ($pending) { Resolve-Pending $pending }
+        $null = Read-Host 'Press Enter to close'
         return 0
     }
 
     foreach ($svc in ($loaded.Service | Select-Object -Unique)) {
         $key = "HKLM:\SYSTEM\CurrentControlSet\Services\$svc"
+        if (-not (Test-Path $key)) { throw "Service $svc has no configuration to disable." }
         Set-ItemProperty -LiteralPath $key -Name Start -Value 4 -Type DWord
         if ((Get-ItemProperty -LiteralPath $key -Name Start).Start -ne 4) {
             throw "Could not disable service $svc."
@@ -239,9 +348,17 @@ function Invoke-Phase1 {
 
 function Invoke-Phase2 {
     Log 'Phase 2: removing driver packages'
-    Invoke-Purge
+    $pending = Invoke-Purge
     Log 'Done.'
     Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
+    if ($pending) {
+        # Nothing in this session can flush the record and there is no one to
+        # ask -- this runs as SYSTEM at startup -- while leaving it would
+        # break the next driver install. The scheduled task has already been
+        # deleted above, so this cannot turn into a restart loop.
+        Log "Service manager still holds $($pending -join ', ')"
+        Request-Restart 'Finishing the VirtIO GPU uninstall.'
+    }
     return 0
 }
 
@@ -254,6 +371,6 @@ try {
     if ($Phase -eq 1) { exit (Invoke-Phase1) } else { exit (Invoke-Phase2) }
 } catch {
     Log "ERROR: $($_.Exception.Message)"
-    if ($Phase -eq 1) { Read-Host 'Press Enter to close' }
+    if ($Phase -eq 1) { $null = Read-Host 'Press Enter to close' }
     exit 1
 }
