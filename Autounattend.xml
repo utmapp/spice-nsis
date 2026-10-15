@@ -155,7 +155,7 @@
                 </PathAndCredentials>
                 <!-- Disabled due to black screen issues
                 <PathAndCredentials wcm:action="add" wcm:keyValue="6">
-                    <Path>E:\Drivers\viogpu\w10\amd64</Path>
+                    <Path>E:\Drivers\viogpudo\w10\amd64</Path>
                 </PathAndCredentials>
                 -->
                 <PathAndCredentials wcm:action="add" wcm:keyValue="7">
@@ -182,7 +182,7 @@
                 </PathAndCredentials>
                 <!-- Disabled due to black screen issues
                 <PathAndCredentials wcm:action="add" wcm:keyValue="4">
-                    <Path>E:\Drivers\viogpu\w10\ARM64</Path>
+                    <Path>E:\Drivers\viogpudo\w10\ARM64</Path>
                 </PathAndCredentials>
                 -->
                 <PathAndCredentials wcm:action="add" wcm:keyValue="5">
