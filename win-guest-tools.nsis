@@ -58,7 +58,11 @@ SetCompressor /SOLID lzma
 !endif
 
 !ifndef VERSION
-!error "-DVERSION=<version> should be passed to makensis, see Makefile"
+!define VERSION "$%VERSION%"
+!endif
+
+!if "${VERSION}" == "$${U+25}VERSION%"
+!error "-DVERSION=<version> or the VERSION environment variable should be passed to makensis, see Makefile"
 !endif
 
 !ifndef DISPLAYED_VERSION
