@@ -47,7 +47,9 @@ Remove-ServiceRecord.
 
 The display keeps working throughout. With no VirtIO GPU driver, Windows
 drives the firmware framebuffer with its basic display driver, at reduced
-resolution.
+resolution. Older installers turned that fallback off, which would leave the
+screen black once the driver is gone, so it is turned back on first; see
+Enable-BasicDisplayFallback.
 
 Architecture-neutral: ARM64 and x64 use the same driver, service and device
 names, and only in-box tools are used.
@@ -62,6 +64,8 @@ $LogFile     = Join-Path $env:SystemRoot 'Temp\Uninstall-VirtioGpu.log'
 $ServiceInf  = [ordered]@{ 'VioGpuDod' = 'viogpudo.inf'; 'VioGpu3D' = 'viogpu3d.inf' }
 $TargetInfs  = @($ServiceInf.Values)
 $TargetSvcs  = @($ServiceInf.Keys)
+$BddKey      = 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers\BasicDisplay'
+$BddValue    = 'DisableBasicDisplayFallback'
 
 # sc.exe exits with the Win32 error code of the call that failed.
 $ERROR_FILE_NOT_FOUND            = 2
@@ -147,6 +151,27 @@ function Remove-Packages {
             Invoke-Tool 'pnputil.exe' @('/delete-driver', $p.Published, '/uninstall', '/force') | Out-Null
         }
     }
+}
+
+# Older installers set DisableBasicDisplayFallback so that Windows would not
+# fall back to the firmware framebuffer next to the VirtIO GPU. With the
+# driver gone that leaves no display at all, so the value has to go before
+# the restart that unloads the driver. Like the old uninstaller, drop the key
+# too if nothing else is in it. Takes effect on the next boot.
+function Test-BasicDisplayFallbackDisabled {
+    $v = Get-ItemProperty -LiteralPath $BddKey -Name $BddValue -ErrorAction SilentlyContinue
+    [bool]($v -and $v.$BddValue)
+}
+
+function Enable-BasicDisplayFallback {
+    if (-not (Test-BasicDisplayFallbackDisabled)) { return }
+    Remove-ItemProperty -LiteralPath $BddKey -Name $BddValue -Force
+    $key = Get-Item -LiteralPath $BddKey -ErrorAction SilentlyContinue
+    if ($key -and $key.ValueCount -eq 0 -and $key.SubKeyCount -eq 0) {
+        Remove-Item -LiteralPath $BddKey -Force -ErrorAction SilentlyContinue
+    }
+    if (Test-BasicDisplayFallbackDisabled) { throw 'Could not re-enable the basic display fallback.' }
+    Log 'Re-enabled the basic display fallback'
 }
 
 # Where a service stands with the SCM, which is not the same question as
@@ -235,6 +260,7 @@ function Invoke-Purge {
             throw "$svc is running; the machine must be rebooted before the packages can be removed."
         }
     }
+    Enable-BasicDisplayFallback
     Remove-Packages
     $pending = Remove-OrphanServices
     Invoke-Tool 'schtasks.exe' @('/Delete', '/TN', $TaskName, '/F') -Quiet | Out-Null
@@ -275,11 +301,12 @@ function Invoke-Phase1 {
         if ($packages | Where-Object { $_.Original -eq $ServiceInf[$svc] }) { continue }
         $stale += $svc
     }
+    $noBdd = Test-BasicDisplayFallbackDisabled
 
     Write-Host ''
     Write-Host 'Uninstall VirtIO GPU display drivers'
     Write-Host '------------------------------------'
-    if (-not $packages -and -not $loaded -and -not $stale) {
+    if (-not $packages -and -not $loaded -and -not $stale -and -not $noBdd) {
         Write-Host 'No VirtIO GPU drivers are installed. Nothing to do.'
         $null = Read-Host 'Press Enter to close'
         return 0
@@ -289,18 +316,24 @@ function Invoke-Phase1 {
     foreach ($p in $packages) { Write-Host "  package  $($p.Original)  version $($p.Version)  ($($p.Published))" }
     foreach ($d in $loaded)   { Write-Host "  device   $($d.Name)  service $($d.Service)" }
     foreach ($svc in $stale)  { Write-Host "  service  $svc  (left over from an earlier uninstall)" }
+    if ($noBdd)               { Write-Host '  setting  basic display fallback disabled  (set by an older installer)' }
     Write-Host ''
     Write-Host 'This will:'
+    $steps = @()
+    if ($noBdd) { $steps += 'Re-enable the basic display fallback.' }
     if ($loaded) {
-        Write-Host "  1. Disable the display driver service ($($loaded.Service -join ', '))."
-        Write-Host '  2. Restart this computer NOW.'
-        Write-Host '  3. Remove the driver packages automatically after the restart.'
+        $steps += "Disable the display driver service ($($loaded.Service -join ', '))."
+        $steps += 'Restart this computer NOW.'
+        $steps += 'Remove the driver packages automatically after the restart.'
+    } elseif ($packages) {
+        $steps += 'Remove the driver packages now.'
+    } elseif ($stale) {
+        $steps += 'Clear the leftover service records now.'
+    }
+    for ($i = 0; $i -lt $steps.Count; $i++) { Write-Host "  $($i + 1). $($steps[$i])" }
+    if ($loaded) {
         Write-Host ''
         Write-Host 'The restart is required: the driver cannot be removed while it is loaded.'
-    } elseif ($packages) {
-        Write-Host '  1. Remove the driver packages now.'
-    } else {
-        Write-Host '  1. Clear the leftover service records now.'
     }
     Write-Host ''
     Write-Host 'The screen keeps working, at a lower resolution, until a display driver is installed.'
@@ -318,10 +351,17 @@ function Invoke-Phase1 {
         $pending = Invoke-Purge
         Log 'Done.'
         Remove-Item -LiteralPath $ScriptPath -Force -ErrorAction SilentlyContinue
-        if ($pending) { Resolve-Pending $pending }
+        if ($pending) {
+            Resolve-Pending $pending
+        } elseif ($noBdd) {
+            Write-Host 'Restart this computer for the basic display fallback to take effect.'
+        }
         $null = Read-Host 'Press Enter to close'
         return 0
     }
+
+    # Before the restart, or the machine comes back with no display at all.
+    Enable-BasicDisplayFallback
 
     foreach ($svc in ($loaded.Service | Select-Object -Unique)) {
         $key = "HKLM:\SYSTEM\CurrentControlSet\Services\$svc"
